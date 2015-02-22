@@ -1,0 +1,78 @@
+---
+title: "report"
+author: "Vi beo"
+date: "Sunday, February 22, 2015"
+output: html_document
+---
+# The Data
+```{r reading data, echo=FALSE }
+setwd("C:/Users/trand_000/Desktop/Coursera Data/Machine Learning/project")
+train<- read.csv("C:/Users/trand_000/Desktop/Coursera Data/Machine Learning/project/pml-training.csv")
+test <- read.csv("C:/Users/trand_000/Desktop/Coursera Data/Machine Learning/project/pml-testing.csv")
+library(ggplot2)
+library(lattice)
+library(caret)
+```
+
+``` {r showdata, echo=TRUE}
+head(train[,153:160])
+```
+The data has 160 variables. Thegoal is to predict value of "classe" which have 4 value A,B,C,D. 
+
+
+# Cleaning the data
+
+
+There are too many variables in the data so I do not show the data here. First, I try to suppress these variables that have more than 75% of its value missing.
+```{r cleanNA}
+count.na<- function(x) { sum(is.na(x))}
+a<-(apply(train, 2, count.na))< (dim(train)[1]*0.25)
+train<- train[,a]
+```
+
+Then I suppress variable that have no variation 
+
+```{r nearzero, echo=TRUE}
+nsv<- nearZeroVar(train)
+train<- train[,-nsv]
+```
+Our data now have 59 variable including our dependent variable.
+
+```{r sixuseless}
+
+summary(train[,1:6])
+train<- train[,-c(1:6)]
+```
+The first six variable are X, user name, rwa-time1, raw_time2, cvtd-timestapm, num _window are not really useful. They are not related to the position so I delete these variables from the data.
+
+I use principal component analysis to find the number of variable that can explain 90% of variation.
+```{r pca}
+preproc<- preProcess(train[,-53], method="pca", thresh= 0.9)
+trainPreproc<- predict(preproc, train[,-53])
+```
+
+# The model
+
+## The first model
+First, I define the train Control. The resampling scheme is 10_fold repeated cross validation.
+The first method applicated is classification tree.
+
+```{r fit1}
+set.seed(4185)
+controlvalue<- trainControl(method= "repeatedCV", repeats= 5)
+classificationTree<- train(train$classe~., data=trainPreproc, method="rpart", trControl= controlvalue)
+classificationTree
+```
+The accuracy is low: 0.39. So I do not choose this model/
+
+## Random forest
+```{r randomForest}
+library(randomForest)
+set.seed(4185)
+randomForest<-randomForest(train$classe~., data=trainPreproc)
+randomForest
+```
+For random forest model we do not need to do the cross validation checking because the out of sample error rate (in the model: OOB out of bag error rate) is estimated internally during the run.
+In this model, the estimated OOB rate is low <2%
+
+So I choose the randomForest model to predict the behavior
